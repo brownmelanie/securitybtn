@@ -8,6 +8,13 @@ const apiUrl = Constants.expoConfig.extra.apiUrl;
 
 export const iniciarSocket = async (alertId) => {
     try {
+
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+            console.error('Permisos de ubicación denegados');
+            return;
+        }
+
         const accessToken = await AsyncStorage.getItem('accessToken');
         console.log ("Token obtenido:", accessToken);
 
@@ -16,6 +23,7 @@ export const iniciarSocket = async (alertId) => {
             return;
         }
 
+        console.log("Intentando conectar a ", apiUrl);
         let socket = io(apiUrl, {
             extraHeaders: {
                 Authorization: `Bearer ${accessToken}`,
@@ -24,7 +32,9 @@ export const iniciarSocket = async (alertId) => {
             reconnectionAttempts: 5,
             reconnectionDelay: 1000,
             reconnectionDelayMax: 5000,
-            randomizationFactor: 0.5
+            randomizationFactor: 0.5,
+            timeout: 10000,
+            transports: ['websocket']
         });
 
         function sendUpdate (alertId, socket) {
@@ -39,7 +49,11 @@ export const iniciarSocket = async (alertId) => {
                     });
                     console.log('Ubicación enviada:', { latitude, longitude, alertId });
                 } catch (error) {
-                    console.error('Error al obtener la ubicación:', error);
+                    console.error('Error detallado al obtener la ubicación:', {
+                        message: error.message,
+                        stack: error.stack,
+                        name: error.name
+                    });
                 }
             }, 10000);
         }
@@ -55,6 +69,10 @@ export const iniciarSocket = async (alertId) => {
             console.log(error);
         } )
 
+        socket.on('connect_error', (error) => {
+            console.log('Error de conexión:', error.message);
+        });
+
         socket.on('disconnect', (reason) => {
             console.log('Desconectado del servidor:', reason);
             detenerActualizacionesUbicacion(interval);
@@ -64,7 +82,11 @@ export const iniciarSocket = async (alertId) => {
             }
         });
     } catch (error) {
-        console.error('Error al iniciar el socket:', error);
+        console.error('Error detallado al iniciar el socket:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+        });
     }
 };
 

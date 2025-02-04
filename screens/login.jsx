@@ -38,6 +38,9 @@ export function LoginScreen () {
                 },
                 body: JSON.stringify({ email, password }),
             });
+
+            console.log({ email, password })
+            console.log("log antes del if")
    
             if (response.ok) {
                 const {accessToken, refreshToken} = await response.json();

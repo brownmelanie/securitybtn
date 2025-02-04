@@ -22,6 +22,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "ansasecu819@gmail.com",
+        "ascAppId": "6741053549",
+        "appleTeamId": "DS643WD896"
+      }
+    }
   }
 }
