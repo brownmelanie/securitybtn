@@ -1,20 +1,20 @@
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, Image, Pressable, Text, View, TextInput, ImageBackground, Alert, KeyboardAvoidingView, Platform, Linking } from "react-native";
 import { Stack, useRouter } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFont } from "../app/fontContext";
 import Constants from "expo-constants";
+
+import LoadingOverlay from "../components/loaderOverlay"
 
 const iconLogo = require("../assets/logo.png");
 const background = require("../assets/background.png")
 
 export function LoginScreen () {
-
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
+    const [isLoading, setIsLoading] = useState(false);
     const router = useRouter();
-
-    const { fonts, fontsLoaded } = useFont();
 
     const apiUrl = Constants.expoConfig.extra.apiUrl;
 
@@ -29,6 +29,8 @@ export function LoginScreen () {
             Alert.alert('Error', 'Por favor, ingrese su email y contraseña.');
             return;
         }
+
+        setIsLoading(true);
 
         try {
             const response = await fetch(`${apiUrl}/login`, {
@@ -60,6 +62,8 @@ export function LoginScreen () {
             Alert.alert( 'Error',
                 'No se pudo conectar con el servidor, intente nuevamente más tarde'
             );
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -105,7 +109,7 @@ export function LoginScreen () {
        
                 <View style={styles.containerBtn}>
                     <Pressable style={styles.btn} onPress={handleLogin}>
-                        <Text style={styles.btnText}>Iniciar Sesión</Text>
+                        <Text style={styles.btnText}>{isLoading ? "Cargando..." : "Iniciar Sesión"}</Text>
                     </Pressable>
                 </View>
             </View>
@@ -116,6 +120,7 @@ export function LoginScreen () {
                     </Text>.
                 </Text>
             </KeyboardAvoidingView>
+            <LoadingOverlay isVisible={isLoading} />
         </ImageBackground>
     )
 }

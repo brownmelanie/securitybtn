@@ -1,14 +1,16 @@
-import { useRef, useState } from "react";
-import { Animated, Pressable, View, Text, Image, StyleSheet, Alert } from "react-native";
+import React, { useRef, useState } from "react";
+import { Animated, Pressable, View, Text, Image, StyleSheet, Alert, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Location from "expo-location";
-import { iniciarSocket } from "./socketLocation";
+import { startLocationTracking, stopLocationTracking } from "./locationTracking";
 import Constants from "expo-constants";
 
-const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
+const Btn = ({ onPress, backgroundColor, text, imageSource, displayText, disabled }) => {
+    
     const apiUrl = Constants.expoConfig.extra.apiUrl;
     const [alertId, setAlertId] = useState(null);
 
+    const [isLoading, setIsLoading] = useState(false);
     const animatedValue = useRef(new Animated.Value(0)).current;
     const animatedBackgroundColor = animatedValue.interpolate({
         inputRange: [0, 1],
@@ -22,6 +24,7 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
             useNativeDriver: false,
         }).start();
     };
+
     const handlePressOut = () => {
         Animated.timing(animatedValue, {
             toValue: 0,
@@ -38,7 +41,7 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
                 throw new Error('Ocurrió un error, inicie sesión nuevamente.');
             }
            
-            console.log("renovando alerta")
+            console.log("renovando alerta");
             const response = await fetch(`${apiUrl}/refresh`, {
                 method: 'POST',
                 headers: {
@@ -50,10 +53,10 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
             const data = await response.json();
             console.log("respondio el endpoint");
             if (response.ok) {
-                const {accessToken, refreshToken} = data;
+                const {accessToken, refreshToken: newRefreshToken} = data;
                 await AsyncStorage.setItem('accessToken', accessToken);
-                await AsyncStorage.setItem('refreshToken', refreshToken);
-                console.log("tokens actualizados")
+                await AsyncStorage.setItem('refreshToken', newRefreshToken);
+                console.log("tokens actualizados");
             } else {
                 throw new Error('Inicie sesión nuevamente');
             }
@@ -64,13 +67,15 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
     };
 
     const handlePress = async () => {
+        if (disabled || isLoading) return;
+        setIsLoading(true);
         try {
-
             const { status } = await Location.requestForegroundPermissionsAsync();
             if (status !== 'granted') {
                 Alert.alert("Error", "Permiso de ubicación denegado");
                 return;
             }
+
             const location = await Location.getCurrentPositionAsync({});
             const { latitude, longitude } = location.coords;
 
@@ -97,9 +102,16 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
                 const data = await response.json();
    
                 if (response.ok) {
-                    Alert.alert("Alerta iniciada", `Alerta de tipo ${text} enviada con éxito.`);
-                    setAlertId(data.id);
-                    iniciarSocket(data.id);
+                    const newAlertId = data.id;
+                    setAlertId(newAlertId);
+                    
+                    const trackingStarted = await startLocationTracking(newAlertId);
+                    
+                    if (trackingStarted) {
+                        Alert.alert("Alerta iniciada", `Alerta de tipo ${text} enviada con éxito.`);
+                    } else {
+                        Alert.alert("Advertencia", "La alerta se envió pero hubo un problema al iniciar el seguimiento de ubicación.");
+                    }
                 } else if (response.status === 403) {
                     await refreshAccessToken();
                     await enviarAlerta();
@@ -107,15 +119,20 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
                     const errorMessage = Array.isArray(data.message)
                         ? data.message.join(', ')
                         : data.message || "Ocurrió un error al enviar la alerta. Intente nuevamente.";
-                    console.log(`Error ${response.status}`, errorMessage)
+                    console.log(`Error ${response.status}`, errorMessage);
                     Alert.alert("Error", "Ocurrió un error al enviar la alerta. Asegurese de no tener alertas activas.");
                 }
             };
+
             await enviarAlerta();
         } catch (error) {
             console.error('Error al enviar la alerta:', error);
+            await stopLocationTracking();
             Alert.alert('Error', 'No se pudo enviar la alerta. Asegurese de no tener alertas activas.');
+        } finally {
+            setIsLoading(false);
         }
+
         if (onPress) {
             onPress();
         }
@@ -123,14 +140,22 @@ const Btn = ({ onPress, backgroundColor, text, imageSource, displayText }) => {
 
     return (
         <Pressable
+            style={[disabled && styles.disabledButton]}
             onPress={handlePress}
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
+            disabled={disabled || isLoading}
         >
             <Animated.View style={[styles.wrapperCustom, { backgroundColor: animatedBackgroundColor }]}>
                 <View style={styles.wrapperBtn}>
-                    <Image source={imageSource}/>
-                    <Text style={styles.textBtn}>{displayText}</Text>
+                    {isLoading ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                        <>
+                            <Image source={imageSource} />
+                            <Text style={styles.textBtn}>{displayText}</Text>
+                        </>
+                    )}
                 </View>
             </Animated.View>
         </Pressable>
@@ -143,6 +168,9 @@ const styles = StyleSheet.create({
       height: 140,
       margin: 10,
       elevation: 8,
+    },
+    disabledButton: {
+        opacity: 0.5,
     },
     wrapperBtn: {
         flex: 1,

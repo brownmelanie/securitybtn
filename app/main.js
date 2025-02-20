@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useState} from "react";
 import { StyleSheet, View, Text, Image, ImageBackground } from 'react-native';
 
 import Btn from '../components/alertButton.jsx';
