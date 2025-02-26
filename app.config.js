@@ -4,7 +4,7 @@ module.exports = {
   expo: {
     name: "securitybutton",
     slug: "securitybutton",
-    version: "1.0.3",
+    version: "1.0.4",
     orientation: "portrait",
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
@@ -18,9 +18,12 @@ module.exports = {
     ios: {
       supportsTablet: false,
       bundleIdentifier: "com.postadigital.securitybutton",
-      buildNumber: "3",
-      NSLocationWhenInUseUsageDescription: "Esta app requiere acceso a tu ubicación para mejorar la experiencia del usuario.",
-      NSLocationAlwaysUsageDescription: "Esta app requiere acceso constante a tu ubicación."
+      buildNumber: "4",
+      infoPlist: {
+        UIBackgroundModes: ["fetch", "location"],
+        NSLocationWhenInUseUsageDescription: "Esta app requiere acceso a tu ubicación para mejorar la experiencia del usuario.",
+        NSLocationAlwaysUsageDescription: "Esta app requiere acceso constante a tu ubicación."
+      }
     },
     android: {
       package: "com.postadigital.securitybutton",

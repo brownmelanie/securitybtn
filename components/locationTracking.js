@@ -44,33 +44,41 @@ const sendLocationUpdate = async (alertId, latitude, longitude) => {
 };
 
 TaskManager.defineTask(LOCATION_TRACKING_TASK, async ({ data, error }) => {
-  if (error) {
-    console.error('Error en el seguimiento de ubicación:', error);
-    return;
-  }
-
-  if (data) {
-    const { locations } = data;
-    const location = locations[0];
-    const storedAlertId = await AsyncStorage.getItem('currentAlertId');
-    const alertId = storedAlertId ? parseInt(storedAlertId, 10) : null;
-
-    if (location && alertId) {
-      const { latitude, longitude } = location.coords;
-      const success = await sendLocationUpdate(alertId, latitude, longitude);
-      
-      if (!success) {
-        await stopLocationTracking();
+  try {
+    if (error) {
+      console.error('Error en el seguimiento de ubicación:', error);
+      return;
+    }
+    if (data) {
+      const { locations } = data;
+      if (locations && locations.length > 0) {
+        const location = locations[0];
+        const storedAlertId = await AsyncStorage.getItem('currentAlertId');
+        const alertId = storedAlertId ? parseInt(storedAlertId, 10) : null;
+        if (location && alertId) {
+          const { latitude, longitude } = location.coords;
+          const success = await sendLocationUpdate(alertId, latitude, longitude);
+          if (!success) {
+            await stopLocationTracking();
+          }
+        }
       }
     }
+  } catch (err) {
+    console.error('Excepción en TaskManager.defineTask:', err);
   }
 });
 
 export const startLocationTracking = async (alertId) => {
   try {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status !== 'granted') {
-      throw new Error('Permisos de ubicación denegados');
+    const { status: foregroundStatus } = await Location.requestForegroundPermissionsAsync();
+    if (foregroundStatus !== 'granted') {
+      throw new Error('Permisos de ubicación en primer plano denegados');
+    }
+
+    const { status: backgroundStatus } = await Location.requestBackgroundPermissionsAsync();
+    if (backgroundStatus !== 'granted') {
+      throw new Error('Permisos de ubicación en segundo plano denegados');
     }
 
     await AsyncStorage.setItem('currentAlertId', alertId.toString());
